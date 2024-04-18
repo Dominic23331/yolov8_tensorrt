@@ -20,4 +20,8 @@ link_directories(/usr/lib/arrch64-linux-gnu)
 #显示OpenCV_INCLUDE_DIRS的值
 message(${OpenCV_INCLUDE_DIRS})
 
-add_executable(yolov8_tensorrt main.cpp)
+add_executable(yolov8_tensorrt main.cpp yolo.cpp yolo.h yolo.cpp utils.cpp utils.h)
+
+target_link_libraries(yolov8_tensorrt  nvinfer)
+target_link_libraries(yolov8_tensorrt  cudart)
+target_link_libraries(yolov8_tensorrt  ${OpenCV_LIBS})
