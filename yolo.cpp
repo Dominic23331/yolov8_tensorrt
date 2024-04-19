@@ -4,8 +4,23 @@
 #include "yolo.h"
 
 
-int YOLO::input_h = 320.;
-int YOLO::input_w = 320.;
+std::vector<std::string> classes = {
+        "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train",
+        "truck", "boat", "traffic light", "fire hydrant", "stop sign", "parking meter",
+        "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear",
+        "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase",
+        "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat",
+        "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass",
+        "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange",
+        "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
+        "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote",
+        "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator",
+        "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
+};
+
+
+int YOLO::input_h = 320;
+int YOLO::input_w = 320;
 float YOLO::conf_threshold = 0.3;
 float YOLO::iou_threshold = 0.65;
 
@@ -112,7 +127,7 @@ std::vector<Box> YOLO::poseprocess(std::vector<float> tensor, int img_w, int img
         db.x2 = b[0] + b[2] / 2;
         db.y2 = b[1] + b[3] / 2;
         db.conf = b[4];
-        db.cls = b[5];
+        db.cls = classes[(int) b[5]];
 
         boxes.push_back(db);
     }
@@ -130,7 +145,7 @@ std::vector<Box> YOLO::poseprocess(std::vector<float> tensor, int img_w, int img
     return boxes;
 }
 
-void YOLO::run(cv::Mat &img) {
+std::vector<Box> YOLO::run(cv::Mat &img) {
     int img_h = img.rows;
     int img_w = img.cols;
 
@@ -147,5 +162,7 @@ void YOLO::run(cv::Mat &img) {
     std::vector<float> boxes_result(out_dim_2 * 84);
     cudaMemcpyAsync(boxes_result.data(), buffer[1], out_dim_2 * 84 * sizeof(float), cudaMemcpyDeviceToHost);
 
-    poseprocess(boxes_result, img_w, img_h);
+    std::vector<Box> result = poseprocess(boxes_result, img_w, img_h);
+
+    return result;
 }

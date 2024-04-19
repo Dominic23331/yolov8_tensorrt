@@ -28,7 +28,7 @@ public:
     static float iou_threshold;
 
     void show();
-    void run(cv::Mat& img);
+    std::vector<Box> run(cv::Mat& img);
 
 private:
     nvinfer1::IRuntime* runtime;

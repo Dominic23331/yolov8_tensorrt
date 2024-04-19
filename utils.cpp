@@ -4,16 +4,15 @@
 #include "utils.h"
 
 
-/**
- * @brief Mix two images
- * @param srcImage Original image
- * @param mixImage Past image
- * @param startPoint Start point
- * @return Success or not
-*/
+std::ostream &operator<<(std::ostream& cout, const Box& b)
+{
+    cout << "Box: [" << b.x1 << ", " << b.y1 << ", " << b.x2 << ", "
+    << b.y2 << "], class: " << b.cls << ", conf: " << b.conf;
+    return cout;
+}
+
 bool MixImage(cv::Mat& srcImage, cv::Mat mixImage, cv::Point startPoint)
 {
-
     if (!srcImage.data || !mixImage.data)
     {
         return false;
@@ -33,13 +32,6 @@ bool MixImage(cv::Mat& srcImage, cv::Mat mixImage, cv::Point startPoint)
 }
 
 
-/**
- * @brief Resize image
- * @param img Input image
- * @param w Resized width
- * @param h Resized height
- * @return Resized image and offset
-*/
 std::tuple<cv::Mat, int, int> resize(cv::Mat& img, int w, int h)
 {
     cv::Mat result;
@@ -134,4 +126,17 @@ std::vector<Box> non_maximum_suppression(std::vector<Box> boxes, float iou_thre)
         result.push_back(chosen_box);
     }
     return result;
+}
+
+
+void draw_boxes(cv::Mat& img, const std::vector<Box>& boxes, const cv::Scalar& color, int thickness)
+{
+    for (int i=0; i < boxes.size(); i++)
+    {
+        cv::rectangle(img,
+                      cv::Point(boxes[i].x1, boxes[i].y1),
+                      cv::Point(boxes[i].x2, boxes[i].y2),
+                      color,
+                      thickness);
+    }
 }
