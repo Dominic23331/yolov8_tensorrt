@@ -25,7 +25,7 @@ float YOLO::conf_threshold = 0.3;
 float YOLO::iou_threshold = 0.65;
 
 
-YOLO::YOLO(const std::string &model_path, nvinfer1::ILogger &logger, float conf_threshold, float iou_threshold) {
+YOLO::YOLO(const std::string &model_path, nvinfer1::ILogger &logger) {
     std::ifstream engineStream(model_path, std::ios::binary);
 
     if (!engineStream.is_open()) {
@@ -102,7 +102,7 @@ std::vector<float> YOLO::preprocess(cv::Mat &image)
 }
 
 
-std::vector<Box> YOLO::poseprocess(std::vector<float> tensor, int img_w, int img_h)
+std::vector<Box> YOLO::postprocess(std::vector<float> tensor, int img_w, int img_h)
 {
     // decode the boxes
     std::vector<Box> boxes;
@@ -134,12 +134,12 @@ std::vector<Box> YOLO::poseprocess(std::vector<float> tensor, int img_w, int img
 
     boxes = non_maximum_suppression(boxes, iou_threshold);
 
-    for (int i = 0; i < boxes.size(); i++)
+    for (auto & boxe : boxes)
     {
-        boxes[i].x1 = MAX((boxes[i].x1 - offset[0]) * img_w / (input_w - 2 * offset[0]), 0);
-        boxes[i].y1 = MAX((boxes[i].y1 - offset[1]) * img_h / (input_h - 2 * offset[1]), 0);
-        boxes[i].x2 = MIN((boxes[i].x2 - offset[0]) * img_w / (input_w - 2 * offset[0]), img_w);
-        boxes[i].y2 = MIN((boxes[i].y2 - offset[1]) * img_h / (input_h - 2 * offset[1]), img_h);
+        boxe.x1 = MAX((boxe.x1 - offset[0]) * img_w / (input_w - 2 * offset[0]), 0);
+        boxe.y1 = MAX((boxe.y1 - offset[1]) * img_h / (input_h - 2 * offset[1]), 0);
+        boxe.x2 = MIN((boxe.x2 - offset[0]) * img_w / (input_w - 2 * offset[0]), img_w);
+        boxe.y2 = MIN((boxe.y2 - offset[1]) * img_h / (input_h - 2 * offset[1]), img_h);
     }
 
     return boxes;
@@ -162,7 +162,96 @@ std::vector<Box> YOLO::run(cv::Mat &img) {
     std::vector<float> boxes_result(out_dim_2 * 84);
     cudaMemcpyAsync(boxes_result.data(), buffer[1], out_dim_2 * 84 * sizeof(float), cudaMemcpyDeviceToHost);
 
-    std::vector<Box> result = poseprocess(boxes_result, img_w, img_h);
+    std::vector<Box> result = postprocess(boxes_result, img_w, img_h);
 
     return result;
+}
+
+
+void YOLO::warmup(int epoch)
+{
+    std::cout << "Warm up." << std::endl;
+
+    for (int step = 0; step <= epoch; ++step)
+    {
+        cv::Mat randomImage(input_h, input_w, CV_8UC3);
+        cv::randu(randomImage, cv::Scalar::all(0), cv::Scalar::all(255));
+        run(randomImage);
+
+        printProgressBar(step, epoch);
+    }
+    std::cout << std::endl;
+}
+
+
+void YOLO::benchmark()
+{
+    int epoch = 100;
+    std::vector<std::vector<double>> benchmarks(6);
+
+    std::cout << "Start running benchmark..." << std::endl;
+
+    for (int step = 0; step <= epoch; ++step)
+    {
+        cv::Mat randomImage(input_h, input_w, CV_8UC3);
+        cv::randu(randomImage, cv::Scalar::all(0), cv::Scalar::all(255));
+
+        std::clock_t t1 = std::clock();
+
+        int img_h = randomImage.rows;
+        int img_w = randomImage.cols;
+
+        auto input = preprocess(randomImage);
+
+        std::clock_t t2 = std::clock();
+
+        cudaMalloc(&buffer[0], 3 * input_h * input_w * sizeof(float));
+        cudaMalloc(&buffer[1], out_dim_2 * 84 * sizeof(float));
+
+        cudaMemcpyAsync(buffer[0], input.data(), 3 * input_h * input_w * sizeof(float), cudaMemcpyHostToDevice, stream);
+
+        std::clock_t t3 = std::clock();
+
+        context->enqueueV2(buffer, stream, nullptr);
+
+        std::clock_t t4 = std::clock();
+
+        cudaStreamSynchronize(stream);
+        std::vector<float> boxes_result(out_dim_2 * 84);
+        cudaMemcpyAsync(boxes_result.data(), buffer[1], out_dim_2 * 84 * sizeof(float), cudaMemcpyDeviceToHost);
+
+        std::clock_t t5 = std::clock();
+
+        std::vector<Box> result = postprocess(boxes_result, img_w, img_h);
+
+        std::clock_t t6 = std::clock();
+
+        benchmarks[0].push_back(double (t6 - t1) / (double) CLOCKS_PER_SEC);
+        benchmarks[1].push_back(double (t2 - t1) / (double) CLOCKS_PER_SEC);
+        benchmarks[2].push_back(double (t3 - t2) / (double) CLOCKS_PER_SEC);
+        benchmarks[3].push_back(double (t4 - t3) / (double) CLOCKS_PER_SEC);
+        benchmarks[4].push_back(double (t5 - t4) / (double) CLOCKS_PER_SEC);
+        benchmarks[5].push_back(double (t6 - t5) / (double) CLOCKS_PER_SEC);
+
+        printProgressBar(step, epoch);
+    }
+    std::cout << std::endl;
+
+    double all_time, preprocess_time, cuda_upload_time, model_run_time, cuda_download_time, postprocess_time, fps;
+
+    all_time = average(benchmarks[0]);
+    preprocess_time = average(benchmarks[1]);
+    cuda_upload_time = average(benchmarks[2]);
+    model_run_time = average(benchmarks[3]);
+    cuda_download_time = average(benchmarks[4]);
+    postprocess_time = average(benchmarks[5]);
+    fps = 1 / all_time;
+
+    std::cout << "Waste time: " << all_time << std::endl;
+    std::cout << "Preprocess time: " << preprocess_time << std::endl;
+    std::cout << "Cuda upload time: " << cuda_upload_time << std::endl;
+    std::cout << "Model inference time: " << model_run_time << std::endl;
+    std::cout << "Cuda download time: " << cuda_download_time << std::endl;
+    std::cout << "Postprocess time: " << postprocess_time << std::endl;
+    std::cout << "FPS: " << fps << std::endl;
 }

@@ -6,6 +6,7 @@
 #include "yolo.h"
 #include "utils.h"
 
+
 class Logger : public nvinfer1::ILogger
 {
     void log(Severity severity, const char* msg) noexcept override
@@ -16,9 +17,14 @@ class Logger : public nvinfer1::ILogger
     }
 }logger;
 
-int main() {
+
+int main()
+{
     YOLO model("../model/yolov8n.engine", logger);
     model.show();
+    model.warmup(30);
+
+    model.benchmark();
 
     cv::Mat img = cv::imread("../img/zidane.jpeg");
     cv::Mat show_img;
@@ -26,8 +32,8 @@ int main() {
     std::vector<Box> boxes = model.run(img);
     draw_boxes(show_img, boxes);
 
-    for (int i=0 ; i < boxes.size(); i++)
-        std::cout << boxes[i] << std::endl;
+    for (const auto & box : boxes)
+        std::cout << box << std::endl;
 
     cv::imwrite("../result.jpg", show_img);
 

@@ -6,9 +6,12 @@
 #define YOLOV8_TENSORRT_UTILS_H
 #include <iostream>
 #include <ostream>
+#include <iomanip>
 #include <vector>
 #include <tuple>
 #include <string>
+#include <numeric>
+
 #include <opencv2/opencv.hpp>
 
 struct Box
@@ -43,4 +46,7 @@ void draw_boxes(cv::Mat& img,
                 const std::vector<Box>& boxes,
                 const cv::Scalar& color=cv::Scalar(255, 0, 0),
                 int thickness=2);
+void printProgressBar(size_t iteration, size_t total, size_t barWidth = 70);
+double average(const std::vector<double>& numbers);
+
 #endif //YOLOV8_TENSORRT_UTILS_H

@@ -116,10 +116,10 @@ std::vector<Box> non_maximum_suppression(std::vector<Box> boxes, float iou_thre)
 
         Box chosen_box = boxes.back();
         boxes.pop_back();
-        for (int i = 0; i < boxes.size(); i++)
+        for (auto & boxe : boxes)
         {
-            if (boxes[i].cls != chosen_box.cls || intersection_over_union(boxes[i], chosen_box) < iou_thre)
-                temp.push_back(boxes[i]);
+            if (boxe.cls != chosen_box.cls || intersection_over_union(boxe, chosen_box) < iou_thre)
+                temp.push_back(boxe);
         }
 
         boxes = temp;
@@ -131,12 +131,40 @@ std::vector<Box> non_maximum_suppression(std::vector<Box> boxes, float iou_thre)
 
 void draw_boxes(cv::Mat& img, const std::vector<Box>& boxes, const cv::Scalar& color, int thickness)
 {
-    for (int i=0; i < boxes.size(); i++)
+    for (const auto & box : boxes)
     {
         cv::rectangle(img,
-                      cv::Point(boxes[i].x1, boxes[i].y1),
-                      cv::Point(boxes[i].x2, boxes[i].y2),
+                      cv::Point(box.x1, box.y1),
+                      cv::Point(box.x2, box.y2),
                       color,
                       thickness);
     }
+}
+
+void printProgressBar(size_t iteration, size_t total, size_t barWidth)
+{
+    std::cout << "[";
+    float progress = static_cast<float>(iteration) / total;
+    size_t pos = static_cast<size_t>(barWidth * progress);
+
+    for (size_t i = 0; i < barWidth; ++i) {
+        if (i < pos) std::cout << "=";
+        else if (i == pos) std::cout << ">";
+        else std::cout << " ";
+    }
+    std::cout << "] " << std::fixed << std::setprecision(2) << (progress * 100.0) << " %\r";
+
+    std::cout.flush();
+}
+
+
+double average(const std::vector<double>& numbers)
+{
+    if (numbers.empty()) {
+        throw std::invalid_argument("Vector is empty. Cannot compute average.");
+    }
+
+    double sum = std::accumulate(numbers.begin(), numbers.end(), 0.0);
+    double avg = sum / numbers.size();
+    return avg;
 }

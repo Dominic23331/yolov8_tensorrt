@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <ctime>
 
 #include <opencv2/opencv.hpp>
 #include <NvInfer.h>
@@ -19,7 +20,7 @@
 class YOLO
 {
 public:
-    YOLO(const std::string& model_path, nvinfer1::ILogger &logger, float conf_threshold=0.6, float iou_threshold=0.65);
+    YOLO(const std::string& model_path, nvinfer1::ILogger &logger);
     ~YOLO();
 
     static int input_w;
@@ -28,6 +29,8 @@ public:
     static float iou_threshold;
 
     void show();
+    void warmup(int epoch);
+    void benchmark();
     std::vector<Box> run(cv::Mat& img);
 
 private:
@@ -41,7 +44,7 @@ private:
     int out_dim_2;
 
     std::vector<float> preprocess(cv::Mat& image);
-    std::vector<Box> poseprocess(std::vector<float> tensor, int img_w, int img_h);
+    std::vector<Box> postprocess(std::vector<float> tensor, int img_w, int img_h);
 };
 
 
