@@ -52,6 +52,7 @@ YOLO::YOLO(const std::string &model_path, nvinfer1::ILogger &logger) {
     offset[1] = 0;
 
     out_dim_2 = (input_w / 8) * (input_h / 8) + (input_w / 16) * (input_h / 16) + (input_w / 32) * (input_h / 32);
+    boxes_result.resize(out_dim_2 * 84);
 }
 
 
@@ -159,12 +160,9 @@ std::vector<Box> YOLO::run(cv::Mat &img) {
     context->enqueueV2(buffer, stream, nullptr);
     cudaStreamSynchronize(stream);
 
-    std::vector<float> boxes_result(out_dim_2 * 84);
     cudaMemcpyAsync(boxes_result.data(), buffer[1], out_dim_2 * 84 * sizeof(float), cudaMemcpyDeviceToHost);
 
-    std::vector<Box> result = postprocess(boxes_result, img_w, img_h);
-
-    return result;
+    return postprocess(boxes_result, img_w, img_h);
 }
 
 
@@ -187,7 +185,9 @@ void YOLO::warmup(int epoch)
 void YOLO::benchmark()
 {
     int epoch = 100;
+    std::vector<Box> result;
     std::vector<std::vector<double>> benchmarks(6);
+    std::vector<float> boxes_result(out_dim_2 * 84);
 
     std::cout << "Start running benchmark..." << std::endl;
 
@@ -217,12 +217,11 @@ void YOLO::benchmark()
         std::clock_t t4 = std::clock();
 
         cudaStreamSynchronize(stream);
-        std::vector<float> boxes_result(out_dim_2 * 84);
         cudaMemcpyAsync(boxes_result.data(), buffer[1], out_dim_2 * 84 * sizeof(float), cudaMemcpyDeviceToHost);
 
         std::clock_t t5 = std::clock();
 
-        std::vector<Box> result = postprocess(boxes_result, img_w, img_h);
+        result = postprocess(boxes_result, img_w, img_h);
 
         std::clock_t t6 = std::clock();
 

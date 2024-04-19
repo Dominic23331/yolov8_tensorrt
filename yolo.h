@@ -42,6 +42,7 @@ private:
     void *buffer[2];
     int offset[2];
     int out_dim_2;
+    std::vector<float> boxes_result;
 
     std::vector<float> preprocess(cv::Mat& image);
     std::vector<Box> postprocess(std::vector<float> tensor, int img_w, int img_h);
