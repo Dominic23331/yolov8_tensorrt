@@ -20,12 +20,16 @@ class Logger : public nvinfer1::ILogger
 
 int main()
 {
+    // init model
     YOLO model("../model/yolov8n.engine", logger);
+    // show model
     model.show();
+    // warmup
     model.warmup(30);
-
+    // get benchmark
     model.benchmark();
 
+    // inference model
     cv::Mat img = cv::imread("../img/zidane.jpeg");
     cv::Mat show_img;
     img.copyTo(show_img);

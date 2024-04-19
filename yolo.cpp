@@ -4,6 +4,7 @@
 #include "yolo.h"
 
 
+// set COCO classes
 std::vector<std::string> classes = {
         "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train",
         "truck", "boat", "traffic light", "fire hydrant", "stop sign", "parking meter",
@@ -18,16 +19,22 @@ std::vector<std::string> classes = {
         "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
 };
 
-
+// set YOLO params
 int YOLO::input_h = 320;
 int YOLO::input_w = 320;
 float YOLO::conf_threshold = 0.3;
 float YOLO::iou_threshold = 0.65;
 
-
+/**
+ * YOLO constructor
+ * @param model_path Engine file path
+ * @param logger tensorrt logger
+ */
 YOLO::YOLO(const std::string &model_path, nvinfer1::ILogger &logger) {
+    // load engine file
     std::ifstream engineStream(model_path, std::ios::binary);
 
+    // check engine file exist.
     if (!engineStream.is_open()) {
         std::cout << "Cannot find model from: " + model_path << std::endl;
         exit(0);
@@ -51,11 +58,14 @@ YOLO::YOLO(const std::string &model_path, nvinfer1::ILogger &logger) {
     offset[0] = 0;
     offset[1] = 0;
 
+    // Calculate output dimension by inputting image size
     out_dim_2 = (input_w / 8) * (input_h / 8) + (input_w / 16) * (input_h / 16) + (input_w / 32) * (input_h / 32);
     boxes_result.resize(out_dim_2 * 84);
 }
 
-
+/**
+ * YOLO Destructor
+ */
 YOLO::~YOLO() {
     cudaFree(stream);
     cudaFree(buffer[0]);
@@ -63,6 +73,9 @@ YOLO::~YOLO() {
 }
 
 
+/**
+ * Display model structure
+ */
 void YOLO::show() {
     for (int i = 0; i < engine->getNbBindings(); i++) {
         std::cout << "node: " << engine->getBindingName(i) << ", ";
@@ -81,13 +94,22 @@ void YOLO::show() {
 }
 
 
+/**
+ * YOLO`s preprocess function
+ * @param image input image
+ * @return tensor
+ */
 std::vector<float> YOLO::preprocess(cv::Mat &image)
 {
+    // get resized image
     std::tuple<cv::Mat, int, int> resized = resize(image, input_w, input_h);
     cv::Mat resized_image = std::get<0>(resized);
+
+    // get resize offset
     offset[0] = std::get<1>(resized);
     offset[1] = std::get<2>(resized);
 
+    // BGR2RGB
     cv::cvtColor(resized_image, resized_image, cv::COLOR_BGR2RGB);
 
     std::vector<float> input_tensor;
@@ -103,6 +125,13 @@ std::vector<float> YOLO::preprocess(cv::Mat &image)
 }
 
 
+/**
+ * YOLO`s postprocess
+ * @param tensor output result, shape: [1, 84, output_dim_2]
+ * @param img_w input image`s width
+ * @param img_h input image`s height
+ * @return boxes
+ */
 std::vector<Box> YOLO::postprocess(std::vector<float> tensor, int img_w, int img_h)
 {
     // decode the boxes
@@ -133,8 +162,10 @@ std::vector<Box> YOLO::postprocess(std::vector<float> tensor, int img_w, int img
         boxes.push_back(db);
     }
 
+    // nms
     boxes = non_maximum_suppression(boxes, iou_threshold);
 
+    // resize boxes
     for (auto & boxe : boxes)
     {
         boxe.x1 = MAX((boxe.x1 - offset[0]) * img_w / (input_w - 2 * offset[0]), 0);
@@ -146,32 +177,48 @@ std::vector<Box> YOLO::postprocess(std::vector<float> tensor, int img_w, int img
     return boxes;
 }
 
+
+/**
+ * inference the model
+ * @param img input image
+ * @return boxes
+ */
 std::vector<Box> YOLO::run(cv::Mat &img) {
+    // get input image`s shape
     int img_h = img.rows;
     int img_w = img.cols;
 
+    // preprocess
     auto input = preprocess(img);
 
+    // upload to cuda
     cudaMalloc(&buffer[0], 3 * input_h * input_w * sizeof(float));
     cudaMalloc(&buffer[1], out_dim_2 * 84 * sizeof(float));
-
     cudaMemcpyAsync(buffer[0], input.data(), 3 * input_h * input_w * sizeof(float), cudaMemcpyHostToDevice, stream);
 
+    // inference
     context->enqueueV2(buffer, stream, nullptr);
     cudaStreamSynchronize(stream);
 
+    // download from cuda
     cudaMemcpyAsync(boxes_result.data(), buffer[1], out_dim_2 * 84 * sizeof(float), cudaMemcpyDeviceToHost);
 
+    // postprocess
     return postprocess(boxes_result, img_w, img_h);
 }
 
 
+/**
+ * Warmup
+ * @param epoch warmup epoch
+ */
 void YOLO::warmup(int epoch)
 {
     std::cout << "Warm up." << std::endl;
 
     for (int step = 0; step <= epoch; ++step)
     {
+        // use a random tensor to warmup
         cv::Mat randomImage(input_h, input_w, CV_8UC3);
         cv::randu(randomImage, cv::Scalar::all(0), cv::Scalar::all(255));
         run(randomImage);
@@ -182,12 +229,15 @@ void YOLO::warmup(int epoch)
 }
 
 
+/**
+ * test YOLO speed benchmark
+ */
 void YOLO::benchmark()
 {
+    // set epoch
     int epoch = 100;
-    std::vector<Box> result;
+    // init benchmark vector
     std::vector<std::vector<double>> benchmarks(6);
-    std::vector<float> boxes_result(out_dim_2 * 84);
 
     std::cout << "Start running benchmark..." << std::endl;
 
@@ -221,7 +271,7 @@ void YOLO::benchmark()
 
         std::clock_t t5 = std::clock();
 
-        result = postprocess(boxes_result, img_w, img_h);
+        postprocess(boxes_result, img_w, img_h);
 
         std::clock_t t6 = std::clock();
 
@@ -238,6 +288,7 @@ void YOLO::benchmark()
 
     double all_time, preprocess_time, cuda_upload_time, model_run_time, cuda_download_time, postprocess_time, fps;
 
+    // Calculate the running time
     all_time = average(benchmarks[0]);
     preprocess_time = average(benchmarks[1]);
     cuda_upload_time = average(benchmarks[2]);
@@ -246,6 +297,7 @@ void YOLO::benchmark()
     postprocess_time = average(benchmarks[5]);
     fps = 1 / all_time;
 
+    // show benchmark
     std::cout << "Waste time: " << all_time << std::endl;
     std::cout << "Preprocess time: " << preprocess_time << std::endl;
     std::cout << "Cuda upload time: " << cuda_upload_time << std::endl;

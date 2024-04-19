@@ -4,6 +4,9 @@
 #include "utils.h"
 
 
+/**
+ * Rewrite cout function
+ */
 std::ostream &operator<<(std::ostream& cout, const Box& b)
 {
     cout << "Box: [" << b.x1 << ", " << b.y1 << ", " << b.x2 << ", "
@@ -11,6 +14,14 @@ std::ostream &operator<<(std::ostream& cout, const Box& b)
     return cout;
 }
 
+
+/**
+ * Mix two images
+ * @param srcImage Original image
+ * @param mixImage Past image
+ * @param startPoint Start point
+ * @return Success or not
+*/
 bool MixImage(cv::Mat& srcImage, cv::Mat mixImage, cv::Point startPoint)
 {
     if (!srcImage.data || !mixImage.data)
@@ -32,6 +43,13 @@ bool MixImage(cv::Mat& srcImage, cv::Mat mixImage, cv::Point startPoint)
 }
 
 
+/**
+ * Resize image
+ * @param img Input image
+ * @param w Resized width
+ * @param h Resized height
+ * @return Resized image and offset
+ */
 std::tuple<cv::Mat, int, int> resize(cv::Mat& img, int w, int h)
 {
     cv::Mat result;
@@ -61,6 +79,11 @@ std::tuple<cv::Mat, int, int> resize(cv::Mat& img, int w, int h)
 }
 
 
+/**
+ * decode classes
+ * @param box output box
+ * @return boxes
+ */
 std::vector<float> decode_cls(std::vector<float>& box)
 {
     std::vector<float> cls_list(box.begin() + 4, box.end());
@@ -75,12 +98,24 @@ std::vector<float> decode_cls(std::vector<float>& box)
 }
 
 
+/**
+ * compare two boxes
+ * @param b1 box1
+ * @param b2 box2
+ * @return result
+ */
 bool compare_boxes(const Box& b1, const Box& b2)
 {
     return b1.conf < b2.conf;
 }
 
 
+/**
+ * compare two boxes IOU
+ * @param b1 box1
+ * @param b2 box2
+ * @return iou
+ */
 float intersection_over_union(const Box& b1, const Box& b2)
 {
     float x1 = std::max(b1.x1, b2.x1);
@@ -103,6 +138,12 @@ float intersection_over_union(const Box& b1, const Box& b2)
 }
 
 
+/**
+ * NMS
+ * @param boxes output boxes from YOLO
+ * @param iou_thre  iou threshold
+ * @return boxes after NMS
+ */
 std::vector<Box> non_maximum_suppression(std::vector<Box> boxes, float iou_thre)
 {
     // Sort boxes based on confidence
@@ -129,6 +170,13 @@ std::vector<Box> non_maximum_suppression(std::vector<Box> boxes, float iou_thre)
 }
 
 
+/**
+ * draw boxes to image
+ * @param img input image
+ * @param boxes YOLO boxes
+ * @param color box color
+ * @param thickness box thickness
+ */
 void draw_boxes(cv::Mat& img, const std::vector<Box>& boxes, const cv::Scalar& color, int thickness)
 {
     for (const auto & box : boxes)
@@ -141,6 +189,13 @@ void draw_boxes(cv::Mat& img, const std::vector<Box>& boxes, const cv::Scalar& c
     }
 }
 
+
+/**
+ * ProgressBar
+ * @param iteration iter
+ * @param total total iter
+ * @param barWidth bar width
+ */
 void printProgressBar(size_t iteration, size_t total, size_t barWidth)
 {
     std::cout << "[";
@@ -158,6 +213,11 @@ void printProgressBar(size_t iteration, size_t total, size_t barWidth)
 }
 
 
+/**
+ * Calculate the average value
+ * @param numbers numbers vector
+ * @return result
+ */
 double average(const std::vector<double>& numbers)
 {
     if (numbers.empty()) {
