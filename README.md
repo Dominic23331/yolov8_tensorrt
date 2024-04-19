@@ -4,7 +4,7 @@
 
 本项目使用TensorRT在Jetson Nano运行YOLOv8，具体的效果如下：
 
-![](https://github-production-user-asset-6210df.s3.amazonaws.com/53283758/324040992-f592af7d-87d6-43d8-a6f5-dbd4345426d1.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20240419%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240419T164456Z&X-Amz-Expires=300&X-Amz-Signature=5b10702bc45426f4d940d1c9c27ab4795059304350306ed4672f774f1843f136&X-Amz-SignedHeaders=host&actor_id=53283758&key_id=0&repo_id=644678708)
+![](https://github.com/Dominic23331/yolov8_tensorrt/assets/53283758/a621f26a-3218-4f96-95a9-fcd27d6fd18a)
 
 ## 需要的依赖
 
