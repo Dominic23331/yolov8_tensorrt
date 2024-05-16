@@ -109,9 +109,6 @@ std::vector<float> YOLO::preprocess(cv::Mat &image)
     offset[0] = std::get<1>(resized);
     offset[1] = std::get<2>(resized);
 
-    // BGR2RGB
-    cv::cvtColor(resized_image, resized_image, cv::COLOR_BGR2RGB);
-
     resized_image.convertTo(resized_image, CV_32F, 1. / 255.);
 
     std::vector<cv::Mat> channels(3);
