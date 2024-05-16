@@ -112,13 +112,16 @@ std::vector<float> YOLO::preprocess(cv::Mat &image)
     // BGR2RGB
     cv::cvtColor(resized_image, resized_image, cv::COLOR_BGR2RGB);
 
+    resized_image.convertTo(resized_image, CV_32F, 1. / 255.);
+
+    std::vector<cv::Mat> channels(3);
+    cv::split(resized_image, channels);
+
     std::vector<float> input_tensor;
-    for (int k = 0; k < 3; k++) {
-        for (int i = 0; i < resized_image.rows; i++) {
-            for (int j = 0; j < resized_image.cols; j++) {
-                input_tensor.emplace_back(((float) resized_image.at<cv::Vec3b>(i, j)[k]) / 255.);
-            }
-        }
+    for (int i = 2; i >= 0; i--)
+    {
+        std::vector<float> tmp = channels[i].reshape(1, 1);
+        input_tensor.insert(input_tensor.end(), tmp.begin(), tmp.end());
     }
 
     return input_tensor;
